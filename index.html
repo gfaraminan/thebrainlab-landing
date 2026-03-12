@@ -11,7 +11,7 @@
 
         :root {
             --blue-lab: #0076FF;
-            --smoke-color: #2a2a2a;
+            --smoke-color: #a3a3a3;
             --bg-initial: #f0f0f0;
         }
 
@@ -186,7 +186,8 @@
         </div>
         <div class="hidden lg:flex gap-10 items-center font-black text-[10px] uppercase tracking-widest text-gray-700">
             <a href="#soluciones" class="hover:text-blue-600 transition">Sistemas</a>
-            <a href="#contacto" class="btn-lab !py-2.5 !px-8 !text-[11px]">Asesoría Gratis</a>
+            <a href="https://wa.me/5492614167597" target="_blank" rel="noopener noreferrer" class="hover:text-blue-600 transition">WhatsApp</a>
+            <a href="mailto:info@thebrainlab.com.ar" class="btn-lab !py-2.5 !px-8 !text-[11px]">Asesoría Gratis</a>
         </div>
     </nav>
 
@@ -313,10 +314,10 @@
                 this.vy = (Math.random() - 0.5) * 1.2;
                 // Humo más grande y espeso
                 this.size = Math.random() * 250 + 150; 
-                this.opacity = Math.random() * 0.5 + 0.3;
+                this.opacity = Math.random() * 0.25 + 0.12;
                 this.life = 1;
                 this.decay = Math.random() * 0.002 + 0.001;
-                this.color = '#333'; // Gris oscuro espeso
+                this.color = getComputedStyle(document.documentElement).getPropertyValue('--smoke-color').trim(); // Gris claro
             }
 
             update() {
