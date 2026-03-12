@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Brain Lab | Made with brAIn</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;800&family=Space+Grotesk:wght@300;500;700&family=Montserrat:wght@900&display=swap');
+
+        :root {
+            --blue-lab: #0076FF;
+            --smoke-color: #2a2a2a;
+            --bg-initial: #f0f0f0;
+        }
+
+        body {
+            background-color: var(--bg-initial);
+            color: #1a1a1a;
+            font-family: 'Space Grotesk', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.6s ease;
+            user-select: none;
+            margin: 0;
+        }
+
+        /* --- CANVAS DE HUMO ESPESO --- */
+        #smoke-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10; /* Por encima del fondo de color */
+            pointer-events: none;
+            filter: blur(15px) contrast(1.2); /* Difuminado para realismo de vapor */
+        }
+
+        /* --- CAPA DE COLOR DE FONDO (REVELADA POR EL HUMO) --- */
+        .color-reveal-layer {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* --- TEXTURA DE PIZARRA/PAPEL --- */
+        .master-texture {
+            position: fixed;
+            inset: 0;
+            z-index: 5;
+            opacity: 0.3;
+            background-image: url('https://www.transparenttextures.com/patterns/asfalt-light.png');
+            pointer-events: none;
+        }
+
+        /* --- EFECTO TIZA (MADE WITH brAIn) --- */
+        .chalk-container {
+            position: relative;
+            display: inline-block;
+            padding: 20px 0;
+        }
+
+        .chalk-text {
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            font-size: clamp(3rem, 12vw, 8rem);
+            text-transform: uppercase;
+            line-height: 0.85;
+            color: #1a1a1a;
+            filter: url(#chalk-filter);
+            position: relative;
+            z-index: 20;
+        }
+
+        /* Polvillo de tiza alrededor */
+        .chalk-text::after {
+            content: attr(data-text);
+            position: absolute;
+            left: 2px; top: 2px;
+            color: white;
+            opacity: 0.5;
+            z-index: -1;
+            filter: blur(3px);
+        }
+
+        /* --- LOGO FIEL AL ORIGINAL --- */
+        .lab-identity {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .brain-svg-id {
+            width: 75px;
+            height: 75px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+        }
+
+        /* --- CARDS RESPONSIVE --- */
+        .art-card {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 40px;
+            padding: 2.5rem;
+            transition: all 0.5s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            z-index: 30;
+        }
+
+        .art-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--blue-lab);
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .btn-lab {
+            background: #1a1a1a;
+            color: #fff;
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            padding: 1.2rem 2.8rem;
+            border-radius: 100px;
+            text-transform: uppercase;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-lab:hover {
+            background: var(--blue-lab);
+            transform: scale(1.05);
+        }
+
+        /* --- SVG FILTERS --- */
+        #svg-filters-lab { position: absolute; width: 0; height: 0; }
+    </style>
+</head>
+<body onclick="interactSmoke(event)" onmousemove="moveSmoke(event)">
+
+    <canvas id="smoke-canvas"></canvas>
+    <div class="color-reveal-layer" id="bg-reveal"></div>
+    <div class="master-texture"></div>
+
+    <!-- Filtro para Tiza Prolija con Textura -->
+    <svg id="svg-filters-lab">
+        <filter id="chalk-filter">
+            <!-- Crea la porosidad del borde -->
+            <feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="3" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" />
+            <!-- Crea el grano interno -->
+            <feComposite in="SourceGraphic" in2="noise" operator="in" opacity="0.8" />
+            <feBlend mode="screen" in2="SourceGraphic" />
+        </filter>
+    </svg>
+
+    <!-- Navegación -->
+    <nav class="fixed w-full z-[100] px-6 py-6 md:px-12 flex justify-between items-center bg-white/10 backdrop-blur-md border-b border-white/10">
+        <div class="lab-identity">
+            <svg class="brain-svg-id" viewBox="0 0 100 100">
+                <!-- Lado Tech (Circuito) -->
+                <path d="M50 20 C35 20 25 35 25 50 C25 65 35 80 50 80" stroke="#94a3b8" stroke-width="6" stroke-linecap="round"/>
+                <circle cx="35" cy="40" r="4.5" fill="#94a3b8"/>
+                <circle cx="30" cy="55" r="4.5" fill="#0076FF"/>
+                <circle cx="42" cy="70" r="4.5" fill="#94a3b8"/>
+                <path d="M25 55 H35" stroke="#94a3b8" stroke-width="2.5"/>
+                <!-- Lado Orgánico (Cerebro) -->
+                <path d="M50 20 C65 20 75 35 75 50 C75 65 65 80 50 80" stroke="#0076FF" stroke-width="6" stroke-linecap="round"/>
+                <path d="M58 35 C68 35 72 45 62 55 C72 65 68 75 58 75" stroke="#0076FF" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+                <!-- Línea Divisoria -->
+                <line x1="50" y1="20" x2="50" y2="80" stroke="#1a1a1a" stroke-width="2" stroke-dasharray="6 6"/>
+                <circle cx="50" cy="50" r="3" fill="#111"/>
+            </svg>
+            <div class="flex flex-col leading-none">
+                <span class="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">The</span>
+                <span class="text-2xl font-black uppercase tracking-tighter">Brain <span class="text-blue-600">Lab</span></span>
+            </div>
+        </div>
+        <div class="hidden lg:flex gap-10 items-center font-black text-[10px] uppercase tracking-widest text-gray-700">
+            <a href="#soluciones" class="hover:text-blue-600 transition">Sistemas</a>
+            <a href="#contacto" class="btn-lab !py-2.5 !px-8 !text-[11px]">Asesoría Gratis</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <header class="min-h-screen flex flex-col justify-center px-6 md:px-24 pt-32 relative z-20">
+        <div class="max-w-6xl">
+            <div class="mb-10 flex items-center gap-4">
+                <span class="h-[2px] w-12 bg-blue-600"></span>
+                <p class="text-[11px] font-black uppercase tracking-[0.8em] text-blue-600">ADN Humano + Tecnología Disruptiva</p>
+            </div>
+
+            <h1 class="text-6xl md:text-[9.5rem] font-black uppercase leading-[0.75] tracking-tighter mb-8">
+                CREAMOS <br> <span class="text-transparent" style="-webkit-text-stroke: 1.5px #1a1a1a;">SOLUCIONES.</span>
+            </h1>
+
+            <div class="chalk-container">
+                <div class="chalk-text" data-text="Made with brAIn">Made with brAIn</div>
+            </div>
+
+            <p class="text-xl md:text-3xl text-gray-700 font-medium max-w-4xl mt-12 italic leading-snug">
+                Nuestro cerebro y la tecnología más avanzada al alcance de todos. Más de 20 años de experiencia humana creando <span class="text-black font-black underline decoration-blue-500 decoration-[10px]">herramientas que respiran.</span>
+            </p>
+
+            <p class="text-[10px] font-black text-blue-600/60 mt-10 uppercase tracking-[0.3em] animate-pulse">
+                [ Haz clic para dispersar el humo y revelar el color del lab ]
+            </p>
+
+            <div class="mt-16">
+                <a href="#contacto" class="btn-lab">
+                    Entrar al Laboratorio <i class="fa-solid fa-wind-warning ml-3"></i>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Soluciones -->
+    <section id="soluciones" class="py-32 px-6 md:px-12 relative z-20">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-5xl md:text-[7rem] font-black uppercase italic mb-20 tracking-tighter">Nuestras <span class="text-blue-600">Obras</span></h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- TicketPro -->
+                <div class="art-card group">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-6 block">// 01_Events</span>
+                        <h3 class="text-4xl font-black uppercase leading-none mb-6">TicketPro</h3>
+                        <p class="text-gray-600 text-lg italic leading-relaxed">
+                            Plataforma profesional para gestión de eventos. Venta masiva, control de acceso y analítica avanzada.
+                        </p>
+                    </div>
+                    <i class="fa-solid fa-ticket text-6xl text-blue-600/10 group-hover:text-blue-600 transition duration-500 self-end"></i>
+                </div>
+
+                <!-- Comedores -->
+                <div class="art-card group">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-pink-500 mb-6 block">// 02_Education</span>
+                        <h3 class="text-4xl font-black uppercase leading-none mb-6">Comedores <br> Escolares</h3>
+                        <p class="text-gray-600 text-lg italic leading-relaxed">
+                            E-commerce de viandas y administración integral diseñada para instituciones educativas.
+                        </p>
+                    </div>
+                    <i class="fa-solid fa-graduation-cap text-6xl text-pink-600/10 group-hover:text-pink-600 transition duration-500 self-end"></i>
+                </div>
+
+                <!-- Menús -->
+                <div class="art-card group">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-teal-500 mb-6 block">// 03_Gastro</span>
+                        <h3 class="text-4xl font-black uppercase leading-none mb-6">Menús <br> Inteligentes</h3>
+                        <p class="text-gray-600 text-lg italic leading-relaxed">
+                            Digitalización gastronómica con IA. Cartas que automatizan pedidos, stock y mejoran el servicio.
+                        </p>
+                    </div>
+                    <i class="fa-solid fa-utensils text-6xl text-teal-500/10 group-hover:text-teal-500 transition duration-500 self-end"></i>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-24 px-6 border-t border-gray-100 bg-white/60 backdrop-blur-xl text-center relative z-20">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12">
+            <span class="text-3xl font-black uppercase tracking-tighter italic">BRAIN <span class="text-blue-600">LAB</span></span>
+            
+            <div class="chalk-text !text-3xl" style="font-size: 2.5rem;" data-text="Made with brAIn">
+                Made with brAIn
+            </div>
+
+            <div class="flex gap-10 text-2xl opacity-30">
+                <a href="#"><i class="fa-brands fa-linkedin-in"></i></a>
+                <a href="https://www.instagram.com/ticketpro.ar" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-instagram"></i></a>
+            </div>
+        </div>
+        <p class="text-[10px] font-mono opacity-20 uppercase tracking-[1em] mt-16 italic">High Performance Software Laboratory // 2026</p>
+    </footer>
+
+    <script>
+        const canvas = document.getElementById('smoke-canvas');
+        const ctx = canvas.getContext('2d');
+        const bgReveal = document.getElementById('bg-reveal');
+        let width, height;
+        let particles = [];
+        const colors = ['#f8f8f6', '#0076FF', '#FF00E5', '#00FFC2', '#F0FF00', '#f1f5f9'];
+        let currentColorIndex = 0;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        class SmokeParticle {
+            constructor(x, y, isExplosion = false) {
+                this.reset(x, y, isExplosion);
+            }
+
+            reset(x = Math.random() * width, y = Math.random() * height, isExplosion = false) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 1.2;
+                this.vy = (Math.random() - 0.5) * 1.2;
+                // Humo más grande y espeso
+                this.size = Math.random() * 250 + 150; 
+                this.opacity = Math.random() * 0.5 + 0.3;
+                this.life = 1;
+                this.decay = Math.random() * 0.002 + 0.001;
+                this.color = '#333'; // Gris oscuro espeso
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+
+                if (this.life <= 0) this.reset();
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.life * this.opacity;
+                ctx.fill();
+            }
+        }
+
+        // Población inicial de humo espeso
+        for(let i=0; i<100; i++) {
+            particles.push(new SmokeParticle());
+        }
+
+        function moveSmoke(e) {
+            // El humo se aparta sutilmente del mouse
+            particles.forEach(p => {
+                const dx = p.x - e.clientX;
+                const dy = p.y - e.clientY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 200) {
+                    p.vx += dx * 0.001;
+                    p.vy += dy * 0.001;
+                }
+            });
+        }
+
+        function interactSmoke(e) {
+            // Cambiar color de fondo
+            currentColorIndex = (currentColorIndex + 1) % colors.length;
+            bgReveal.style.backgroundColor = colors[currentColorIndex];
+
+            // Dispersión violenta (Vórtice)
+            particles.forEach(p => {
+                const dx = p.x - e.clientX;
+                const dy = p.y - e.clientY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 600) {
+                    const force = (600 - dist) / 10;
+                    p.vx += (dx / dist) * force;
+                    p.vy += (dy / dist) * force;
+                    p.life -= 0.1; // Se disipa un poco al explotar
+                }
+            });
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        // Efecto de aparición fluido
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = "1";
+                    entry.target.style.transform = "translateY(0) scale(1)";
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.art-card, section h2, header div').forEach(el => {
+            el.style.opacity = "0";
+            el.style.transform = "translateY(50px) scale(0.96)";
+            el.style.transition = "all 1s cubic-bezier(0.16, 1, 0.3, 1)";
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
